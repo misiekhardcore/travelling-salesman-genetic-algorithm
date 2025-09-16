@@ -1,25 +1,49 @@
 import { shuffleArray } from '@/utils';
+import { MutationStrategy, CrossoverStrategy } from '@/services';
 
 type Gene = number;
 
 export class Individual {
-  constructor(public genes: Gene[] = []) {}
+  constructor(
+    public genes: Gene[] = [],
+    private mutationStrategy?: MutationStrategy,
+    private crossoverStrategy?: CrossoverStrategy
+  ) {}
 
-  mutate(mutationRate: number): this {
-    if (Math.random() < mutationRate) {
-      this.genes = shuffleArray(this.genes);
+  mutate(mutationRate: number, mutationStrategy?: MutationStrategy): this {
+    const strategy = mutationStrategy || this.mutationStrategy;
+    if (strategy) {
+      this.genes = strategy.mutate(this.genes, mutationRate);
+    } else {
+      // Fallback to original behavior if no strategy provided
+      if (Math.random() < mutationRate) {
+        this.genes = shuffleArray(this.genes);
+      }
     }
     return this;
   }
 
-  crossover(partner: Individual): [Individual, Individual] {
-    const sectionPoint = Math.floor(this.genes.length * 0.75);
-    const half = Math.random() < 0.5 ? 'start' : 'end';
+  crossover(partner: Individual, crossoverStrategy?: CrossoverStrategy): [Individual, Individual] {
+    const strategy = crossoverStrategy || this.crossoverStrategy;
+    if (strategy) {
+      const [newGenes1, newGenes2] = strategy.crossover(this.genes, partner.genes);
+      return [
+        new Individual(newGenes1, this.mutationStrategy, this.crossoverStrategy),
+        new Individual(newGenes2, this.mutationStrategy, this.crossoverStrategy),
+      ];
+    } else {
+      // Fallback to original behavior if no strategy provided
+      const sectionPoint = Math.floor(this.genes.length * 0.75);
+      const half = Math.random() < 0.5 ? 'start' : 'end';
 
-    const newGenes1 = this.combineGenes(this.genes, partner.genes, sectionPoint, half);
-    const newGenes2 = this.combineGenes(partner.genes, this.genes, sectionPoint, half);
+      const newGenes1 = this.combineGenes(this.genes, partner.genes, sectionPoint, half);
+      const newGenes2 = this.combineGenes(partner.genes, this.genes, sectionPoint, half);
 
-    return [new Individual(newGenes1), new Individual(newGenes2)];
+      return [
+        new Individual(newGenes1, this.mutationStrategy, this.crossoverStrategy),
+        new Individual(newGenes2, this.mutationStrategy, this.crossoverStrategy),
+      ];
+    }
   }
 
   private combineGenes(
